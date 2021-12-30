@@ -5,11 +5,11 @@ pragma solidity 0.8.10;
 /// @author @wschwab
 /// @notice Allows trustless buyout of a precentage of an ERC20 token at a given price in ETH
 /// @dev Offerer must put up full amount, cannot reneg, offer must be executed before deadline
+/// @dev contract may accumulate ETH dust
 
 import "../lib/solmate/src/utils/SafeTransferLib.sol";
 import "../lib/solmate/src/utils/ReentrancyGuard.sol";
 
-//TODO: cutoff once target is reached (preventing malicious dilution)
 //TODO: consider failure cases with payouts
 
 struct Offer {
@@ -36,8 +36,7 @@ contract Doorbell is ReentrancyGuard {
   uint256 private offerCounter;
 
   event OfferMade(address indexed token, address indexed offerer, uint256 target, uint256 price, uint256 deadline);
-  event TokensStaked(uint256 indexed offer, address indexed staker, uint256 amount, uint256 amountRemaining);
-  event OfferMet(uint256 index);
+  event TokensStaked(uint256 indexed offer, address indexed staker, uint256 amount, uint256 indexed amountRemaining);
   event OfferExecuted(uint256 index);
   event Withdrawal(uint256 index, address withdrawer);
 
@@ -81,22 +80,21 @@ contract Doorbell is ReentrancyGuard {
     Offer memory off = offers[index];
     require(block.timestamp < off.deadline, "offer closed");
     require(msg.sender != off.offerer, "cannot stake in own offer");
+
+    uint256 amountRemaining = off.target - off.staked;
+    uint256 finalAmount = amountRemaining > amount ? amount : amountRemaining;
+    off.staked += finalAmount;
+    // recalculating for the event at the end
+    amountRemaining = off.target - off.staked;
+
     ERC20 token = ERC20(off.token);
-    token.safeTransferFrom(msg.sender, address(this), amount);
+    token.safeTransferFrom(msg.sender, address(this), finalAmount);
     
-    off.staked += amount;
     if (staked[index][msg.sender] == 0) stakers[index].push(msg.sender);
-    staked[index][msg.sender] += amount;
-    // determine how much is left
-    uint256 amountRemaining = off.staked >= off.target ? 0 : off.target - off.staked;
-    // determine if this deposit secures the target
-    bool flag = amountRemaining == 0 && offers[index].staked < off.target ? true : false;
+    staked[index][msg.sender] += finalAmount;
+
     offers[index].staked = off.staked;
-    emit TokensStaked(index, msg.sender, amount, amountRemaining);
-    // this event should only be triggered once per offer when met
-    if (flag) {
-      emit OfferMet(index);
-    }
+    emit TokensStaked(index, msg.sender, finalAmount, amountRemaining);
   }
   function exectue(uint256 index) external nonReentrant {
     // load offer into memory
