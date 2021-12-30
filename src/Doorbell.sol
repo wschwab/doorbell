@@ -11,6 +11,7 @@ import "../lib/solmate/src/utils/SafeTransferLib.sol";
 import "../lib/solmate/src/utils/ReentrancyGuard.sol";
 
 //TODO: consider failure cases with payouts
+//TODO: consider pull over push post-deadline
 
 struct Offer {
   // address of offer creator
@@ -74,7 +75,6 @@ contract Doorbell is ReentrancyGuard {
     emit OfferMade(_token, msg.sender, _target, _price, _deadline);
   }
 
-  //TODO: rewrite so that cannot deposit more than target
   function stakeToken(uint256 index, uint256 amount) external {
     // load offer into memory for cheaper reference
     Offer memory off = offers[index];
