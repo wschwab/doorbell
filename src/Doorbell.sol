@@ -6,7 +6,11 @@ pragma solidity 0.8.10;
 /// @notice Allows trustless buyout of a precentage of an ERC20 token at a given price in ETH
 /// @dev Offerer must put up full amount, cannot reneg, offer must be executed before deadline
 
-//TODO: imports, cutoff once target is reached (preventing malicious dilution)
+import "../lib/solmate/src/utils/SafeTransferLib.sol";
+import "../lib/solmate/src/utils/ReentrancyGuard.sol";
+
+//TODO: cutoff once target is reached (preventing malicious dilution)
+//TODO: consider failure cases with payouts
 
 struct Offer {
   // address of offer creator
@@ -22,10 +26,10 @@ struct Offer {
   // target amount must be accrued by deadline
   uint256 deadline;
 }
-contract Doorbell {
+contract Doorbell is ReentrancyGuard {
   using SafeTransferLib for ERC20;
 
-  mapping(uint256 => Offer[]) private offers;
+  mapping(uint256 => Offer) private offers;
   // index => staker => amount
   mapping(uint256 => mapping(address => uint256)) private staked;
   mapping(uint256 => address[]) private stakers;
@@ -37,16 +41,16 @@ contract Doorbell {
   event OfferExecuted(uint256 index);
   event Withdrawal(uint256 index, address withdrawer);
 
-  function getActiveOffers() external view returns(Offers[] memory) {
-    Offers[] calldata allOffers;
+  function getActiveOffers() external view returns(Offer[] memory) {
+    Offer[] memory allOffers;
     for (uint256 i = 0; i < offerCounter; i++) {
-      if (!offers[i].active) continue;
-      allOffers.push(offers[i]);
+      if (offers[i].deadline >= block.timestamp) continue;
+      allOffers[i] = offers[i];
     }
     return allOffers;
   }
 
-  function getOfferByIndex(uint265 index) external view returns(Offer memory){
+  function getOfferByIndex(uint256 index) external view returns(Offer memory){
     return offers[index];
   }
   
@@ -57,18 +61,18 @@ contract Doorbell {
     uint256 _deadline
   ) external payable {
     require(msg.value >= _price * _target, "insuffient ETH sent");
-    offers[msg.sender].push(Offer({
+    offers[offerCounter] = Offer({
       offerer: msg.sender,
       token: _token,
       target: _target,
       staked: 0,
       price: _price,
       deadline: _deadline
-    }));
+    });
 
     offerCounter++;
 
-    emit OfferMade(_token, msg.sender, target, price, deadline);
+    emit OfferMade(_token, msg.sender, _target, _price, _deadline);
   }
 
   //TODO: rewrite so that cannot deposit more than target
@@ -81,7 +85,7 @@ contract Doorbell {
     token.safeTransferFrom(msg.sender, address(this), amount);
     
     off.staked += amount;
-    if (staked[index][msg.sender] == 0) stakers.push(msg.sender);
+    if (staked[index][msg.sender] == 0) stakers[index].push(msg.sender);
     staked[index][msg.sender] += amount;
     // determine how much is left
     uint256 amountRemaining = off.staked >= off.target ? 0 : off.target - off.staked;
@@ -104,7 +108,7 @@ contract Doorbell {
 
     for (uint256 i = 0; i < stakers[index].length; i++) {
       uint256 ratio = staked[index][msg.sender] * 1e18 / off.staked;
-      ratio = unadjustedRatio / 1e18;
+      ratio /= 1e18;
 
       (bool success,) = msg.sender.call{value: totalPrice / ratio}("");
     }
@@ -120,7 +124,7 @@ contract Doorbell {
     require(block.timestamp >= off.deadline, "offer still active");
     // for the initial deposit
     if(msg.sender == off.offerer) {
-      msg.sender.call{value: off.price * off.target}("");
+      (bool success,) = msg.sender.call{value: off.price * off.target}("");
     } else {
       ERC20 token = ERC20(off.token);
       token.safeTransfer(msg.sender, staked[index][msg.sender]);

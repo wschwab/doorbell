@@ -1,0 +1,78 @@
+{
+  "_format": "ethers-rs-sol-cache-1",
+  "files": {
+    "/home/x/code/doorbell/src/Doorbell.sol": {
+      "lastModificationDate": 1640861633619,
+      "contentHash": "9a6d6ad635ee851c1026b0eac267ae62",
+      "sourceName": "src/Doorbell.sol",
+      "solcConfig": {
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "": [
+                "ast"
+              ],
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers"
+              ]
+            }
+          },
+          "evmVersion": "london"
+        }
+      },
+      "imports": [
+        "../lib/solmate/src/utils/SafeTransferLib.sol",
+        "../lib/solmate/src/utils/ReentrancyGuard.sol"
+      ],
+      "versionPragmas": [
+        "0.8.10"
+      ],
+      "artifacts": [
+        "Doorbell"
+      ]
+    },
+    "/home/x/code/doorbell/src/test/Contract.t.sol": {
+      "lastModificationDate": 1640855692821,
+      "contentHash": "5ce497c2d0d00f52e09ab63326c63aef",
+      "sourceName": "src/test/Contract.t.sol",
+      "solcConfig": {
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "": [
+                "ast"
+              ],
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers"
+              ]
+            }
+          },
+          "evmVersion": "london"
+        }
+      },
+      "imports": [
+        "ds-test/test.sol"
+      ],
+      "versionPragmas": [
+        "0.8.10"
+      ],
+      "artifacts": [
+        "ContractTest"
+      ]
+    }
+  }
+}
