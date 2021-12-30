@@ -18,11 +18,14 @@ struct Offer {
   address offerer;
   // address of token to purchase
   address token;
+  // decimals in target token
+  // this needs to be stored to prevent an attack where decimals change in middle
+  uint8 decimals;
   // target amount of token to buy
   uint256 target;
   // amount of target staked to date
   uint256 staked;
-  // price in ETH to pay for token
+  // price in ETH to pay for 1 token
   uint256 price;
   // target amount must be accrued by deadline
   uint256 deadline;
@@ -60,11 +63,14 @@ contract Doorbell is ReentrancyGuard {
     uint256 _price,
     uint256 _deadline
   ) external payable {
-    require(msg.value >= _price * _target, "insuffient ETH sent");
+    ERC20 token = ERC20(_token);
+    uint8 decimals = token.decimals();
+    require(msg.value >= _price * _target / 10**decimals, "insuffient ETH sent");
     offers[offerCounter] = Offer({
       offerer: msg.sender,
       token: _token,
       target: _target,
+      decimals: decimals,
       staked: 0,
       price: _price,
       deadline: _deadline
@@ -102,7 +108,7 @@ contract Doorbell is ReentrancyGuard {
     require(block.timestamp <= off.deadline, "deadline passed");
     require(off.staked >= off.target, "target not met");
 
-    uint256 totalPrice = off.target * off.price;
+    uint256 totalPrice = off.target * off.price / 10**off.decimals;
 
     for (uint256 i = 0; i < stakers[index].length; i++) {
       uint256 ratio = staked[index][msg.sender] * 1e18 / off.staked;
@@ -122,7 +128,7 @@ contract Doorbell is ReentrancyGuard {
     require(block.timestamp >= off.deadline, "offer still active");
     // for the initial deposit
     if(msg.sender == off.offerer) {
-      (bool success,) = msg.sender.call{value: off.price * off.target}("");
+      (bool success,) = msg.sender.call{value: off.price * off.target / 10**off.decimals}("");
     } else {
       ERC20 token = ERC20(off.token);
       token.safeTransfer(msg.sender, staked[index][msg.sender]);
